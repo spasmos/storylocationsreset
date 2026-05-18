@@ -1,0 +1,36 @@
+{
+  "enabled": true,
+  "runOnServerStart": false,
+  "serverStartDelaySeconds": 15,
+  "skipIfPlayersNearby": true,
+  "playerSafetyRadius": 256,
+  "evacuatePlayersInsideResetAreaToSpawn": false,
+  "evacuatePlayersOnJoinFromRecentlyResetAreas": true,
+  "recentResetAreaRetentionHours": 24,
+  "locations": {
+    "resonancearchive": {
+      "enabled": true,
+      "maxInstancesToReset": 1
+    },
+    "devastationarea": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    },
+    "lazaret": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    },
+    "tobiascave": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    },
+    "treasurehunter": {
+      "enabled": false,
+      "maxInstancesToReset": 0
+    },
+    "village": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    }
+  }
+}

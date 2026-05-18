@@ -1,0 +1,82 @@
+{
+  // Master switch for the mod.
+  "enabled": true,
+
+  // If true, enabled locations are reset automatically after the server starts.
+  // This is disabled by default because regeneration is destructive world editing.
+  // Manual scan/list commands are not required for startup resets:
+  // the mod scans internally before resetting.
+  "runOnServerStart": false,
+
+  // Delay before running automatic startup resets.
+  "serverStartDelaySeconds": 15,
+
+  // Skip a reset if players are close to the target location.
+  "skipIfPlayersNearby": true,
+
+  // Horizontal safety radius in blocks.
+  // If this finds a player nearby, the reset is skipped before teleport logic is considered.
+  "playerSafetyRadius": 256,
+
+  // If true, players standing inside the exact chunk range to regenerate are moved before the reset.
+  // Normal case: they are moved to their own resolved spawn.
+  // Anti-abuse case: if their resolved spawn is also inside the reset area, their personal spawn
+  // is cleared and they are moved to the world spawn instead.
+  // This prevents players from blocking resets by camping inside a story location or setting
+  // their spawn inside the area to be regenerated.
+  // Keep this false unless you intentionally prefer moving players over skipping the reset.
+  // For this to matter, skipIfPlayersNearby normally needs to be false or have a smaller radius.
+  // WARNING: if skipIfPlayersNearby is false and this value is also false, resets can happen
+  // while players are standing inside the regenerated area. This can trap, drop, desync,
+  // or otherwise disrupt players. Server owners should disclose that policy clearly.
+  "evacuatePlayersInsideResetAreaToSpawn": false,
+
+  // If true, players who reconnect inside an area that was reset recently are moved to spawn.
+  // This covers the common startup-reset case where a player logged out inside a story area
+  // before the server restarted.
+  "evacuatePlayersOnJoinFromRecentlyResetAreas": true,
+
+  // How long recently reset chunk ranges are kept for join-time evacuation checks.
+  // This stores very small records and is pruned automatically.
+  "recentResetAreaRetentionHours": 24,
+
+  "locations": {
+    "resonancearchive": {
+      "enabled": true,
+
+      // Maximum number of matching generated structures to reset.
+      // Keep this at 1 for story locations that should exist only once.
+      "maxInstancesToReset": 1
+    },
+
+    "devastationarea": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    },
+
+    "lazaret": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    },
+
+    "tobiascave": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    },
+
+    // WARNING:
+    // treasurehunter can exist many times in a world.
+    // Do not enable it for automatic resets unless you have first checked /storyreset list
+    // and you intentionally want to regenerate multiple discovered locations.
+    // A high maxInstancesToReset value can trigger many /wgen regenrange operations.
+    "treasurehunter": {
+      "enabled": false,
+      "maxInstancesToReset": 0
+    },
+
+    "village": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    }
+  }
+}

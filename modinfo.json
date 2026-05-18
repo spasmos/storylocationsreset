@@ -1,0 +1,16 @@
+{
+  "type": "code",
+  "modid": "storylocationsreset",
+  "name": "StoryLocationsReset",
+  "side": "server",
+  "requiredOnClient": false,
+  "requiredOnServer": true,
+  "authors": [
+    "spasmos"
+  ],
+  "description": "Server-side helper to reset Vintage Story story locations by regenerating their worldgen area.",
+  "version": "1.0.0",
+  "dependencies": {
+    "game": "1.22.0"
+  }
+}

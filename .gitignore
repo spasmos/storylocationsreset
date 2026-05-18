@@ -1,0 +1,17 @@
+# .NET build outputs
+bin/
+obj/
+*.pdb
+
+# Vintage Story mod packages
+*.zip
+
+# Publication-page drafts are kept locally, not in source repos
+file.md
+file.es.md
+
+# Local/editor noise
+.vs/
+.vscode/
+*.user
+*.suo
