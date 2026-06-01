@@ -1,0 +1,84 @@
+{
+  // Interruptor principal del mod.
+  "enabled": true,
+
+  // Si esta en true, las localizaciones activadas se reinician automaticamente al arrancar el servidor.
+  // Viene desactivado por defecto porque la regeneracion edita el mundo de forma destructiva.
+  // No hace falta ejecutar manualmente scan/list para los reinicios al arrancar:
+  // el mod escanea internamente antes de reiniciar.
+  "runOnServerStart": false,
+
+  // Retraso antes de ejecutar reinicios automaticos al arrancar.
+  "serverStartDelaySeconds": 15,
+
+  // Omite el reinicio si hay jugadores cerca de la localizacion objetivo.
+  "skipIfPlayersNearby": true,
+
+  // Radio horizontal de seguridad en bloques.
+  // Si encuentra un jugador cerca, el reinicio se omite antes de considerar la logica de teleport.
+  "playerSafetyRadius": 256,
+
+  // Si esta en true, los jugadores dentro del rango exacto de chunks a regenerar se mueven antes del reinicio.
+  // Caso normal: se mueven a su propio spawn resuelto.
+  // Caso anti-abuso: si su spawn resuelto tambien esta dentro del area de reinicio, se limpia su spawn personal
+  // y se mueven al spawn del mundo.
+  // Esto evita que los jugadores bloqueen reinicios acampando dentro de una localizacion de historia
+  // o poniendo su spawn dentro del area que se va a regenerar.
+  // Mantenlo en false salvo que prefieras mover jugadores antes que omitir el reinicio.
+  // Para que esto importe, skipIfPlayersNearby normalmente debe estar en false o tener un radio menor.
+  // ADVERTENCIA: si skipIfPlayersNearby es false y este valor tambien es false, los reinicios pueden ocurrir
+  // mientras hay jugadores dentro del area regenerada. Esto puede atraparlos, hacerlos caer, desincronizarlos
+  // o molestarlos. Los administradores deberian comunicar claramente esta politica.
+  "evacuatePlayersInsideResetAreaToSpawn": false,
+
+  // Si esta en true, los jugadores que reconecten dentro de un area reiniciada recientemente se mueven al spawn.
+  // Cubre el caso comun de reinicio al arrancar, cuando un jugador se desconecto dentro de una zona de historia
+  // antes de que el servidor reiniciara.
+  "evacuatePlayersOnJoinFromRecentlyResetAreas": true,
+
+  // Tiempo durante el que se conservan los rangos de chunks reiniciados recientemente
+  // para comprobaciones de evacuacion al entrar.
+  // Guarda registros muy pequenos y los limpia automaticamente.
+  "recentResetAreaRetentionHours": 24,
+
+  "locations": {
+    "resonancearchive": {
+      "enabled": true,
+
+      // Numero maximo de estructuras generadas coincidentes que se reiniciaran.
+      // Mantenlo en 1 para localizaciones de historia que solo deberian existir una vez.
+      "maxInstancesToReset": 1
+    },
+
+    "devastationarea": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    },
+
+    "lazaret": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    },
+
+    "tobiascave": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    },
+
+    // ADVERTENCIA:
+    // treasurehunter puede existir muchas veces en un mundo.
+    // No lo actives para reinicios automaticos salvo que hayas revisado antes /storyreset list
+    // y quieras regenerar intencionadamente varias localizaciones descubiertas.
+    // Un valor alto en maxInstancesToReset puede lanzar muchas operaciones /wgen regenrange.
+    "treasurehunter": {
+      "enabled": false,
+      "maxInstancesToReset": 0
+    },
+
+    "village": {
+      "enabled": false,
+      "maxInstancesToReset": 1
+    }
+  }
+}
+

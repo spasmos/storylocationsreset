@@ -40,5 +40,6 @@
     <Content Include="modinfo.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="storylocationsreset.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="storylocationsreset.template.jsonc" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="storylocationsreset.template.es.jsonc" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

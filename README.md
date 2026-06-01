@@ -113,9 +113,7 @@ Join-time evacuation:
 
 ## Compatibility
 
-- Vintage Story `1.22.0`
-- Vintage Story `1.22.1`
-- Vintage Story `1.22.2`
+- Vintage Story `1.22.x`
 
 ## Changelog 1.0.0
 
