@@ -10,7 +10,7 @@ Un mod server-side para Vintage Story que ayuda a administradores a reiniciar lo
 
 `StoryLocationsReset` es un mod auxiliar server-side para Vintage Story 1.22.x.
 
-Escanea las regiones generadas del mapa buscando codigos conocidos de estructuras de historia y puede regenerar el rango de chunks alrededor de esas localizaciones. El objetivo es permitir que servidores multijugador refresquen contenido de historia para que mas de un grupo de jugadores pueda vivirlo con el paso del tiempo.
+Escanea las localizaciones de historia registradas por Vintage Story buscando codigos conocidos de estructuras de historia y puede regenerar el rango de chunks alrededor de esas localizaciones. El objetivo es permitir que servidores multijugador refresquen contenido de historia para que mas de un grupo de jugadores pueda vivirlo con el paso del tiempo.
 
 El mod esta pensado para actuar con cautela:
 
@@ -46,13 +46,13 @@ Usalo despues de editar la configuracion.
 
 `/storyreset scan`
 
-Escanea las regiones generadas del mapa y actualiza la lista interna del mod con las localizaciones de historia configuradas.
+Escanea las localizaciones de historia registradas y actualiza la lista interna del mod con las localizaciones configuradas.
 
 Este comando no reinicia nada. Es un comando seguro de descubrimiento.
 
 `/storyreset list`
 
-Primero escanea y despues muestra las localizaciones de historia configuradas que se han encontrado en las regiones generadas del mapa.
+Primero escanea y despues muestra las localizaciones de historia configuradas que Vintage Story tiene registradas.
 
 Usalo antes de subir `maxInstancesToReset`, activar una nueva localizacion o activar reinicios al arrancar el servidor.
 
@@ -139,6 +139,12 @@ Importante:
 Compatibilidad:
 
 - Vintage Story `1.22.x`
+
+## Changelog 1.0.1
+
+- Corregida la deteccion de localizaciones de historia en Vintage Story 1.22.x leyendo primero las localizaciones vanilla registradas
+- Conservado el escaneo de estructuras generadas como respaldo
+- Actualizada la documentacion para que scan/list no sugieran que solo se revisan regiones generadas del mapa
 
 ## Changelog 1.0.0
 

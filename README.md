@@ -4,7 +4,7 @@ A server-side Vintage Story mod that helps admins reset generated story location
 
 `StoryLocationsReset` is a server-side helper mod for Vintage Story 1.22.x.
 
-It scans generated map regions for known story structure codes and can regenerate the chunk range around those locations. The goal is to let multiplayer servers refresh story content so more than one group of players can experience it over time.
+It scans Vintage Story's registered story structure locations for known story structure codes and can regenerate the chunk range around those locations. The goal is to let multiplayer servers refresh story content so more than one group of players can experience it over time.
 
 The mod is intentionally cautious:
 
@@ -38,11 +38,11 @@ Reloads `ModConfig/storylocationsreset.json` without restarting the server.
 
 `/storyreset scan`
 
-Scans generated map regions and refreshes the mod's in-memory list of configured story locations. This command does not reset anything.
+Scans the registered story structure locations and refreshes the mod's in-memory list of configured story locations. This command does not reset anything.
 
 `/storyreset list`
 
-Scans first, then prints the configured story locations currently found in generated map regions.
+Scans first, then prints the configured story locations currently registered by Vintage Story.
 
 `/storyreset reset <code>`
 
@@ -114,6 +114,12 @@ Join-time evacuation:
 ## Compatibility
 
 - Vintage Story `1.22.x`
+
+## Changelog 1.0.1
+
+- Fixed story location discovery for Vintage Story 1.22.x by reading the registered vanilla story structure locations first
+- Kept generated-structure scanning as a fallback
+- Updated documentation wording so scan/list no longer implies only generated map regions are checked
 
 ## Changelog 1.0.0
 
