@@ -2,6 +2,8 @@ using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
+using System.Collections;
+using System.Reflection;
 
 namespace StoryLocationsReset;
 
@@ -228,6 +230,45 @@ public class StoryLocationsResetModSystem : ModSystem
         cachedLocations.Clear();
         HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
 
+        ScanRegisteredStoryStructureLocations(seen);
+        ScanGeneratedStructures(seen);
+
+        return cachedLocations.Count;
+    }
+
+    private void ScanRegisteredStoryStructureLocations(HashSet<string> seen)
+    {
+        if (sapi == null)
+        {
+            return;
+        }
+
+        object? storySystem = sapi.ModLoader.GetModSystem("Vintagestory.GameContent.GenStoryStructures");
+        object? structures = GetMemberValue(storySystem, "Structures");
+
+        if (structures is not IEnumerable enumerable)
+        {
+            return;
+        }
+
+        foreach (object entry in enumerable)
+        {
+            object? locationEntry = GetMemberValue(entry, "Value") ?? entry;
+            string? code = GetMemberValue(entry, "Key") as string
+                ?? GetMemberValue(locationEntry, "Code") as string;
+            Cuboidi? location = GetMemberValue(locationEntry, "Location") as Cuboidi;
+
+            AddStoryLocation(code, location, seen);
+        }
+    }
+
+    private void ScanGeneratedStructures(HashSet<string> seen)
+    {
+        if (sapi == null)
+        {
+            return;
+        }
+
         BlockPos min = new(0, 0, 0);
         BlockPos max = new(
             sapi.WorldManager.MapSizeX - 1,
@@ -241,18 +282,40 @@ public class StoryLocationsResetModSystem : ModSystem
                 return;
             }
 
-            Vec3i center = structure.Location.Center;
-            string key = $"{structure.Code}:{structure.Location.X1}:{structure.Location.Y1}:{structure.Location.Z1}";
-
-            if (!seen.Add(key))
-            {
-                return;
-            }
-
-            cachedLocations.Add(new StoryLocationEntry(structure.Code, center, structure.Location.Clone()));
+            AddStoryLocation(structure.Code, structure.Location, seen);
         });
+    }
 
-        return cachedLocations.Count;
+    private bool AddStoryLocation(string? code, Cuboidi? location, HashSet<string> seen)
+    {
+        if (code == null || location == null || !config.Locations.ContainsKey(code))
+        {
+            return false;
+        }
+
+        string key = $"{code}:{location.X1}:{location.Y1}:{location.Z1}";
+
+        if (!seen.Add(key))
+        {
+            return false;
+        }
+
+        cachedLocations.Add(new StoryLocationEntry(code, location.Center, location.Clone()));
+        return true;
+    }
+
+    private static object? GetMemberValue(object? instance, string memberName)
+    {
+        if (instance == null)
+        {
+            return null;
+        }
+
+        const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        Type type = instance.GetType();
+
+        return type.GetProperty(memberName, Flags)?.GetValue(instance)
+            ?? type.GetField(memberName, Flags)?.GetValue(instance);
     }
 
     private bool ExecuteReset(StoryLocationEntry location, string reason)
