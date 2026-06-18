@@ -1,4 +1,5 @@
 using Vintagestory.API.Common;
+using Vintagestory.API.Datastructures;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
@@ -18,6 +19,10 @@ public class StoryLocationsResetModSystem : ModSystem
     private StoryLocationsResetConfig config = StoryLocationsResetConfig.CreateDefault();
     private StoryLocationsResetState state = new();
     private readonly List<StoryLocationEntry> cachedLocations = new();
+    private readonly Queue<QueuedStoryReset> queuedResets = new();
+    private bool resetQueueRunning;
+    private bool waitingForWgenRegen;
+    private int activeResetSequence;
 
     public override void StartServerSide(ICoreServerAPI api)
     {
@@ -25,6 +30,7 @@ public class StoryLocationsResetModSystem : ModSystem
         LoadConfig();
         LoadState();
         RegisterCommands(api);
+        api.Event.RegisterEventBusListener(OnEventBus, 0.0, "wgenregendone");
         api.Event.PlayerJoin += OnPlayerJoin;
 
         api.Event.ServerRunPhase(EnumServerRunPhase.RunGame, () =>
@@ -43,6 +49,7 @@ public class StoryLocationsResetModSystem : ModSystem
     {
         if (sapi != null)
         {
+            sapi.Event.UnregisterEventBusListener(OnEventBus);
             sapi.Event.PlayerJoin -= OnPlayerJoin;
         }
     }
@@ -81,18 +88,18 @@ public class StoryLocationsResetModSystem : ModSystem
         CommandArgumentParsers parsers = api.ChatCommands.Parsers;
 
         api.ChatCommands.Create("storyreset")
-            .WithDescription("Reset generated story locations")
+            .WithDescription("Reset Vintage Story story locations")
             .RequiresPrivilege(Privilege.controlserver)
             .BeginSubCommand("reload")
                 .WithDescription("Reload storylocationsreset.json")
                 .HandleWith(OnReloadCommand)
                 .EndSubCommand()
             .BeginSubCommand("scan")
-                .WithDescription("Scan generated story structures and refresh the in-memory cache")
+                .WithDescription("Scan story locations and refresh the in-memory cache")
                 .HandleWith(OnScanCommand)
                 .EndSubCommand()
             .BeginSubCommand("list")
-                .WithDescription("List discovered story structures")
+                .WithDescription("List configured story locations")
                 .HandleWith(OnListCommand)
                 .EndSubCommand()
             .BeginSubCommand("reset")
@@ -120,7 +127,7 @@ public class StoryLocationsResetModSystem : ModSystem
 
         if (cachedLocations.Count == 0)
         {
-            return TextCommandResult.Success("No configured story locations were found in generated map regions.");
+            return TextCommandResult.Success("No configured story locations were found.");
         }
 
         string lines = string.Join(
@@ -129,7 +136,14 @@ public class StoryLocationsResetModSystem : ModSystem
                 .OrderBy(location => location.Code)
                 .ThenBy(location => location.Center.X)
                 .ThenBy(location => location.Center.Z)
-                .Select(location => $"{location.Code}: {location.Center.X}, {location.Center.Y}, {location.Center.Z}"));
+                .Select(location =>
+                {
+                    string source = location.FoundInGeneratedStructure
+                        ? "registered+generated-region"
+                        : "registered-only";
+
+                    return $"{location.Code}: {location.Center.X}, {location.Center.Y}, {location.Center.Z} ({source})";
+                }));
 
         return TextCommandResult.Success(lines);
     }
@@ -140,14 +154,14 @@ public class StoryLocationsResetModSystem : ModSystem
         ResetResult result = ResetLocations(requestedCode, "manual-command");
 
         return TextCommandResult.Success(
-            $"Story reset finished. Reset: {result.Reset}. Skipped: {result.Skipped}. Not found: {result.NotFound}.");
+            $"Story reset queued. Queued: {result.Reset}. Skipped: {result.Skipped}. Not found: {result.NotFound}.");
     }
 
     private void ResetEnabledLocations(string reason)
     {
         ResetResult result = ResetLocations("all", reason);
         sapi?.Logger.Notification(
-            "[storylocationsreset] Automatic reset finished. Reset: {0}. Skipped: {1}. Not found: {2}.",
+            "[storylocationsreset] Automatic reset queued. Queued: {0}. Skipped: {1}. Not found: {2}.",
             result.Reset,
             result.Skipped,
             result.NotFound);
@@ -195,11 +209,13 @@ public class StoryLocationsResetModSystem : ModSystem
 
             foreach (StoryLocationEntry location in matches)
             {
-                if (config.SkipIfPlayersNearby && HasPlayersNearby(location.Center, config.PlayerSafetyRadius))
+                if (reason.Equals("server-start", StringComparison.OrdinalIgnoreCase)
+                    && !config.DebugAllowServerStartForUngeneratedLocations
+                    && !location.FoundInGeneratedStructure)
                 {
                     result.Skipped++;
                     sapi.Logger.Notification(
-                        "[storylocationsreset] Skipping '{0}' at {1}/{2}/{3}: player nearby.",
+                        "[storylocationsreset] Skipping '{0}' at {1}/{2}/{3}: registered story location is not present in generated map regions.",
                         location.Code,
                         location.Center.X,
                         location.Center.Y,
@@ -207,10 +223,14 @@ public class StoryLocationsResetModSystem : ModSystem
                     continue;
                 }
 
-                if (!ExecuteReset(location, reason))
+                if (reason.Equals("server-start", StringComparison.OrdinalIgnoreCase)
+                    && !config.DebugAllowServerStartForUngeneratedLocations)
                 {
-                    result.Skipped++;
-                    continue;
+                    EnqueueResetAfterChunkExistenceCheck(location, reason);
+                }
+                else
+                {
+                    EnqueueReset(location, reason);
                 }
 
                 result.Reset++;
@@ -218,6 +238,173 @@ public class StoryLocationsResetModSystem : ModSystem
         }
 
         return result;
+    }
+
+    private void EnqueueResetAfterChunkExistenceCheck(StoryLocationEntry location, string reason)
+    {
+        if (sapi == null)
+        {
+            return;
+        }
+
+        ChunkRange range = GetResetChunkRange(location);
+        List<Vec2i> chunks = GetChunkExistenceChecks(range);
+        object sync = new();
+        int pending = chunks.Count;
+        bool anyExist = false;
+
+        foreach (Vec2i chunk in chunks)
+        {
+            sapi.WorldManager.TestMapChunkExists(chunk.X, chunk.Y, exists =>
+            {
+                bool completed;
+
+                lock (sync)
+                {
+                    anyExist |= exists;
+                    pending--;
+                    completed = pending == 0;
+                }
+
+                if (!completed || sapi == null)
+                {
+                    return;
+                }
+
+                sapi.Event.EnqueueMainThreadTask(() =>
+                {
+                    if (!anyExist)
+                    {
+                        sapi.Logger.Notification(
+                            "[storylocationsreset] Skipping '{0}' at {1}/{2}/{3}: reset area is known but none of its chunk columns are generated yet.",
+                            location.Code,
+                            location.Center.X,
+                            location.Center.Y,
+                            location.Center.Z);
+                        return;
+                    }
+
+                    EnqueueReset(location, reason);
+                }, "storylocationsreset-existing-chunks");
+            });
+        }
+    }
+
+    private static List<Vec2i> GetChunkExistenceChecks(ChunkRange range)
+    {
+        List<Vec2i> chunks = new();
+
+        for (int chunkX = range.MinChunkX; chunkX <= range.MaxChunkX; chunkX++)
+        {
+            for (int chunkZ = range.MinChunkZ; chunkZ <= range.MaxChunkZ; chunkZ++)
+            {
+                chunks.Add(new Vec2i(chunkX, chunkZ));
+            }
+        }
+
+        return chunks;
+    }
+
+    private void EnqueueReset(StoryLocationEntry location, string reason)
+    {
+        queuedResets.Enqueue(new QueuedStoryReset(location, reason));
+
+        if (resetQueueRunning)
+        {
+            sapi?.Logger.Notification(
+                "[storylocationsreset] Queued '{0}'. Pending reset operations: {1}.",
+                location.Code,
+                queuedResets.Count);
+            return;
+        }
+
+        resetQueueRunning = true;
+        sapi?.Logger.Notification("[storylocationsreset] Starting queued story reset operations.");
+        ProcessNextQueuedReset();
+    }
+
+    private void ProcessNextQueuedReset(float dt = 0)
+    {
+        if (sapi == null || waitingForWgenRegen)
+        {
+            return;
+        }
+
+        while (queuedResets.Count > 0)
+        {
+            QueuedStoryReset queuedReset = queuedResets.Dequeue();
+
+            if (!ExecuteReset(queuedReset.Location, queuedReset.Reason))
+            {
+                continue;
+            }
+
+            waitingForWgenRegen = true;
+            int sequence = ++activeResetSequence;
+            int timeoutMs = Math.Max(5, config.RegenCompletionTimeoutSeconds) * 1000;
+            sapi.Event.RegisterCallback(_ => OnRegenTimeout(sequence), timeoutMs);
+            return;
+        }
+
+        resetQueueRunning = false;
+        sapi.Logger.Notification("[storylocationsreset] Queued story reset operations finished.");
+    }
+
+    private void OnEventBus(string eventName, ref EnumHandling handling, IAttribute data)
+    {
+        if (!eventName.Equals("wgenregendone", StringComparison.OrdinalIgnoreCase) || sapi == null)
+        {
+            return;
+        }
+
+        sapi.Event.EnqueueMainThreadTask(OnWgenRegenDone, "storylocationsreset-wgen-done");
+    }
+
+    private void OnWgenRegenDone()
+    {
+        if (sapi == null || !waitingForWgenRegen)
+        {
+            return;
+        }
+
+        waitingForWgenRegen = false;
+        sapi.Logger.Notification(
+            "[storylocationsreset] Vanilla worldgen reported regen complete. Pending reset operations: {0}.",
+            queuedResets.Count);
+
+        ScheduleNextQueuedReset();
+    }
+
+    private void OnRegenTimeout(int sequence)
+    {
+        if (sapi == null || sequence != activeResetSequence || !waitingForWgenRegen)
+        {
+            return;
+        }
+
+        waitingForWgenRegen = false;
+        sapi.Logger.Warning(
+            "[storylocationsreset] Timed out waiting for vanilla wgenregendone after {0} seconds. Continuing queued resets conservatively.",
+            config.RegenCompletionTimeoutSeconds);
+
+        ScheduleNextQueuedReset();
+    }
+
+    private void ScheduleNextQueuedReset()
+    {
+        if (sapi == null)
+        {
+            return;
+        }
+
+        if (queuedResets.Count == 0)
+        {
+            ProcessNextQueuedReset();
+            return;
+        }
+
+        int cooldownMs = Math.Max(1, config.ResetQueueCooldownSeconds) * 1000;
+        sapi.Event.RegisterCallback(ProcessNextQueuedReset, cooldownMs);
     }
 
     private int ScanStoryLocations()
@@ -258,7 +445,7 @@ public class StoryLocationsResetModSystem : ModSystem
                 ?? GetMemberValue(locationEntry, "Code") as string;
             Cuboidi? location = GetMemberValue(locationEntry, "Location") as Cuboidi;
 
-            AddStoryLocation(code, location, seen);
+            AddStoryLocation(code, location, seen, foundInGeneratedStructure: false);
         }
     }
 
@@ -282,11 +469,11 @@ public class StoryLocationsResetModSystem : ModSystem
                 return;
             }
 
-            AddStoryLocation(structure.Code, structure.Location, seen);
+            AddStoryLocation(structure.Code, structure.Location, seen, foundInGeneratedStructure: true);
         });
     }
 
-    private bool AddStoryLocation(string? code, Cuboidi? location, HashSet<string> seen)
+    private bool AddStoryLocation(string? code, Cuboidi? location, HashSet<string> seen, bool foundInGeneratedStructure)
     {
         if (code == null || location == null || !config.Locations.ContainsKey(code))
         {
@@ -297,10 +484,24 @@ public class StoryLocationsResetModSystem : ModSystem
 
         if (!seen.Add(key))
         {
+            if (foundInGeneratedStructure)
+            {
+                int index = cachedLocations.FindIndex(entry =>
+                    entry.Code.Equals(code, StringComparison.OrdinalIgnoreCase)
+                    && entry.Location.X1 == location.X1
+                    && entry.Location.Y1 == location.Y1
+                    && entry.Location.Z1 == location.Z1);
+
+                if (index >= 0)
+                {
+                    cachedLocations[index] = cachedLocations[index] with { FoundInGeneratedStructure = true };
+                }
+            }
+
             return false;
         }
 
-        cachedLocations.Add(new StoryLocationEntry(code, location.Center, location.Clone()));
+        cachedLocations.Add(new StoryLocationEntry(code, location.Center, location.Clone(), foundInGeneratedStructure));
         return true;
     }
 
@@ -326,6 +527,17 @@ public class StoryLocationsResetModSystem : ModSystem
         }
 
         ChunkRange range = GetResetChunkRange(location);
+
+        if (config.SkipIfPlayersNearby && HasPlayersNearby(location.Center, config.PlayerSafetyRadius))
+        {
+            sapi.Logger.Notification(
+                "[storylocationsreset] Skipping '{0}' at {1}/{2}/{3}: player nearby.",
+                location.Code,
+                location.Center.X,
+                location.Center.Y,
+                location.Center.Z);
+            return false;
+        }
 
         if (!HandlePlayersInsideResetArea(location, range))
         {
@@ -451,7 +663,7 @@ public class StoryLocationsResetModSystem : ModSystem
                 location.Center.Z,
                 playersInside.Count);
             return false;
-            }
+        }
 
         foreach (IServerPlayer player in playersInside)
         {
@@ -606,6 +818,12 @@ public class StoryLocationsResetConfig
 
     public int ServerStartDelaySeconds { get; set; } = 15;
 
+    public bool DebugAllowServerStartForUngeneratedLocations { get; set; }
+
+    public int ResetQueueCooldownSeconds { get; set; } = 5;
+
+    public int RegenCompletionTimeoutSeconds { get; set; } = 300;
+
     public bool SkipIfPlayersNearby { get; set; } = true;
 
     public int PlayerSafetyRadius { get; set; } = 256;
@@ -644,6 +862,8 @@ public class StoryLocationsResetConfig
         }
 
         ServerStartDelaySeconds = Math.Max(1, ServerStartDelaySeconds);
+        ResetQueueCooldownSeconds = Math.Max(1, ResetQueueCooldownSeconds);
+        RegenCompletionTimeoutSeconds = Math.Max(5, RegenCompletionTimeoutSeconds);
         PlayerSafetyRadius = Math.Max(0, PlayerSafetyRadius);
         RecentResetAreaRetentionHours = Math.Max(0, RecentResetAreaRetentionHours);
     }
@@ -656,7 +876,9 @@ public class StoryLocationResetOptions
     public int MaxInstancesToReset { get; set; } = 1;
 }
 
-internal sealed record StoryLocationEntry(string Code, Vec3i Center, Cuboidi Location);
+internal sealed record StoryLocationEntry(string Code, Vec3i Center, Cuboidi Location, bool FoundInGeneratedStructure);
+
+internal sealed record QueuedStoryReset(StoryLocationEntry Location, string Reason);
 
 internal sealed record ChunkRange(int MinChunkX, int MinChunkZ, int MaxChunkX, int MaxChunkZ)
 {

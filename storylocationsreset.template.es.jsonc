@@ -11,6 +11,25 @@
   // Retraso antes de ejecutar reinicios automaticos al arrancar.
   "serverStartDelaySeconds": 15,
 
+  // MODO DEBUG / PRUEBAS:
+  // Si esta en true, el reinicio automatico al arrancar puede actuar sobre localizaciones
+  // registradas por vanilla aunque sus chunks todavia no existan.
+  // Esto fuerza la generacion de zonas no materializadas y NO es recomendable para un mundo real.
+  // Si esta en false, el arranque automatico exige que al menos un chunk column del area objetivo
+  // ya este materializado. La comprobacion usa TestMapChunkExists y no genera chunks.
+  // Mantenlo en false en produccion.
+  "debugAllowServerStartForUngeneratedLocations": false,
+
+  // Pausa entre una regeneracion completada y la siguiente operacion de reset en cola.
+  // El mod espera primero al evento vanilla wgenregendone antes de contar esta pausa.
+  // Esto evita lanzar varios /wgen regenrange solapados sobre el sistema de chunks.
+  "resetQueueCooldownSeconds": 5,
+
+  // Tiempo maximo de espera para que vanilla publique wgenregendone despues de lanzar /wgen regenrange.
+  // Si el evento no llega, el mod continua con la cola de forma conservadora tras este timeout.
+  // El camino normal debe ser el evento, no el timeout.
+  "regenCompletionTimeoutSeconds": 300,
+
   // Omite el reinicio si hay jugadores cerca de la localizacion objetivo.
   "skipIfPlayersNearby": true,
 
@@ -81,4 +100,3 @@
     }
   }
 }
-
