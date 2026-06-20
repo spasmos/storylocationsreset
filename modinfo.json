@@ -9,7 +9,7 @@
     "spasmos"
   ],
   "description": "Server-side helper to reset Vintage Story story locations by regenerating their worldgen area.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "dependencies": {
     "game": "1.22.0"
   }

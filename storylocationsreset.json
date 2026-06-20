@@ -2,7 +2,7 @@
   "enabled": true,
   "runOnServerStart": false,
   "serverStartDelaySeconds": 15,
-  "debugAllowServerStartForUngeneratedLocations": false,
+  "debugAllowResetForUngeneratedLocations": false,
   "resetQueueCooldownSeconds": 5,
   "regenCompletionTimeoutSeconds": 300,
   "skipIfPlayersNearby": true,

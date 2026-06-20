@@ -151,7 +151,7 @@ public class StoryLocationsResetModSystem : ModSystem
     private TextCommandResult OnResetCommand(TextCommandCallingArgs args)
     {
         string requestedCode = args[0] as string ?? "all";
-        ResetResult result = ResetLocations(requestedCode, "manual-command");
+        ResetResult result = ResetLocations(requestedCode, "manual-command", useServerStartFlow: true);
 
         return TextCommandResult.Success(
             $"Story reset queued. Queued: {result.Reset}. Skipped: {result.Skipped}. Not found: {result.NotFound}.");
@@ -159,7 +159,7 @@ public class StoryLocationsResetModSystem : ModSystem
 
     private void ResetEnabledLocations(string reason)
     {
-        ResetResult result = ResetLocations("all", reason);
+        ResetResult result = ResetLocations("all", reason, useServerStartFlow: true);
         sapi?.Logger.Notification(
             "[storylocationsreset] Automatic reset queued. Queued: {0}. Skipped: {1}. Not found: {2}.",
             result.Reset,
@@ -167,7 +167,7 @@ public class StoryLocationsResetModSystem : ModSystem
             result.NotFound);
     }
 
-    private ResetResult ResetLocations(string requestedCode, string reason)
+    private ResetResult ResetLocations(string requestedCode, string reason, bool useServerStartFlow)
     {
         ResetResult result = new();
 
@@ -209,13 +209,13 @@ public class StoryLocationsResetModSystem : ModSystem
 
             foreach (StoryLocationEntry location in matches)
             {
-                if (reason.Equals("server-start", StringComparison.OrdinalIgnoreCase)
-                    && !config.DebugAllowServerStartForUngeneratedLocations
-                    && !location.FoundInGeneratedStructure)
+                bool allowUngeneratedReset = config.DebugAllowsUngeneratedResets();
+
+                if (useServerStartFlow && !allowUngeneratedReset && !location.FoundInGeneratedStructure)
                 {
                     result.Skipped++;
                     sapi.Logger.Notification(
-                        "[storylocationsreset] Skipping '{0}' at {1}/{2}/{3}: registered story location is not present in generated map regions.",
+                        "[storylocationsreset] Skipping '{0}' at {1}/{2}/{3}: registered story location is not present in generated map regions. Enable debugAllowResetForUngeneratedLocations only for test worlds if you want to force this.",
                         location.Code,
                         location.Center.X,
                         location.Center.Y,
@@ -223,8 +223,7 @@ public class StoryLocationsResetModSystem : ModSystem
                     continue;
                 }
 
-                if (reason.Equals("server-start", StringComparison.OrdinalIgnoreCase)
-                    && !config.DebugAllowServerStartForUngeneratedLocations)
+                if (useServerStartFlow && !allowUngeneratedReset)
                 {
                     EnqueueResetAfterChunkExistenceCheck(location, reason);
                 }
@@ -820,6 +819,8 @@ public class StoryLocationsResetConfig
 
     public bool DebugAllowServerStartForUngeneratedLocations { get; set; }
 
+    public bool DebugAllowResetForUngeneratedLocations { get; set; }
+
     public int ResetQueueCooldownSeconds { get; set; } = 5;
 
     public int RegenCompletionTimeoutSeconds { get; set; } = 300;
@@ -866,6 +867,16 @@ public class StoryLocationsResetConfig
         RegenCompletionTimeoutSeconds = Math.Max(5, RegenCompletionTimeoutSeconds);
         PlayerSafetyRadius = Math.Max(0, PlayerSafetyRadius);
         RecentResetAreaRetentionHours = Math.Max(0, RecentResetAreaRetentionHours);
+
+        if (DebugAllowServerStartForUngeneratedLocations)
+        {
+            DebugAllowResetForUngeneratedLocations = true;
+        }
+    }
+
+    public bool DebugAllowsUngeneratedResets()
+    {
+        return DebugAllowResetForUngeneratedLocations || DebugAllowServerStartForUngeneratedLocations;
     }
 }
 

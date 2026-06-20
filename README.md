@@ -75,7 +75,7 @@ However, `/storyreset scan` and `/storyreset list` are strongly recommended as s
 
 For automatic startup resets, you do not need to run `/storyreset scan` manually on every restart. The mod scans at runtime before executing the reset.
 
-Since `1.0.1`, automatic startup reset requires the location to be present in generated map regions and at least one chunk column in the target area to exist, unless debug mode is explicitly enabled. This prevents the mod from forcing locations into existence when vanilla knows about them but their terrain has not been materialized yet.
+Since `1.0.2`, manual reset commands use the same safe flow as automatic startup reset. With `debugAllowResetForUngeneratedLocations` set to `false`, the mod requires the location to be present in generated map regions and at least one chunk column in the target area to exist. This prevents the mod from forcing locations into existence when vanilla knows about them but their terrain has not been materialized yet.
 
 ## Player Evacuation Behavior
 
@@ -113,8 +113,8 @@ Join-time evacuation:
 - Back up your world before using this mod.
 - The reset operation regenerates chunk ranges.
 - Listed locations can be vanilla-registered locations, not necessarily player-discovered areas.
-- For startup resets in real worlds, keep `debugAllowServerStartForUngeneratedLocations` false.
-- Enable `debugAllowServerStartForUngeneratedLocations` only for tests: it can force generation of registered locations even when their chunks do not exist yet. With the normal `false` value, the mod checks that at least one chunk column in the target area already exists before regenerating.
+- For real worlds, keep `debugAllowResetForUngeneratedLocations` false.
+- Enable `debugAllowResetForUngeneratedLocations` only for tests: it can force generation of registered locations even when their chunks do not exist yet. With the normal `false` value, the mod checks that the location is present in generated map regions and that at least one chunk column in the target area already exists before regenerating.
 - Players near a configured location can block the reset if `skipIfPlayersNearby` is enabled.
 - The regenerated chunk range is calculated from the generated structure's real bounding box.
 - `evacuatePlayersInsideResetAreaToSpawn` is disabled by default. Enable it only if you prefer moving players instead of skipping a reset when they are inside the exact regenerated chunk area.
@@ -128,12 +128,20 @@ Join-time evacuation:
 
 - Vintage Story `1.22.x`
 
+## Changelog 1.0.2
+
+- Unified `/storyreset reset <code|all>` with the same safe flow used by `runOnServerStart`
+- `runOnServerStart: false` can now keep automatic restart resets disabled while still allowing admins to run the same flow manually when desired
+- Added `debugAllowResetForUngeneratedLocations` as the correct debug flag name for any reset, not only startup
+- Kept compatibility with the old `debugAllowServerStartForUngeneratedLocations` key
+- With `debugAllowResetForUngeneratedLocations: false`, manual and automatic resets require the location to be present in generated map regions and at least one chunk column to exist before regeneration
+- Updated documentation to explain the safe manual flow and debug mode
+
 ## Changelog 1.0.1
 
 - Fixed story location discovery for Vintage Story 1.22.x by reading the registered vanilla story structure locations first
 - Kept generated-structure scanning as a fallback
-- Replaced startup safety with `debugAllowServerStartForUngeneratedLocations`
-- Normal automatic startup reset checks that at least one chunk column in the target area exists before regenerating and does not force completely unmaterialized areas into existence unless debug mode is enabled
+- Added startup safety to avoid forcing completely unmaterialized areas unless debug mode is enabled
 - Added a regeneration queue: the mod waits for `wgenregendone` before launching the next `/wgen regenrange`
 - Added `resetQueueCooldownSeconds` and `regenCompletionTimeoutSeconds`
 - Manual commands can still use registered vanilla story locations

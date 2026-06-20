@@ -12,13 +12,14 @@
   "serverStartDelaySeconds": 15,
 
   // MODO DEBUG / PRUEBAS:
-  // Si esta en true, el reinicio automatico al arrancar puede actuar sobre localizaciones
+  // Si esta en true, cualquier reset puede actuar sobre localizaciones
   // registradas por vanilla aunque sus chunks todavia no existan.
   // Esto fuerza la generacion de zonas no materializadas y NO es recomendable para un mundo real.
-  // Si esta en false, el arranque automatico exige que al menos un chunk column del area objetivo
+  // Si esta en false, tanto el comando manual como el arranque automatico exigen que la localizacion
+  // exista en regiones generadas y que al menos un chunk column del area objetivo
   // ya este materializado. La comprobacion usa TestMapChunkExists y no genera chunks.
   // Mantenlo en false en produccion.
-  "debugAllowServerStartForUngeneratedLocations": false,
+  "debugAllowResetForUngeneratedLocations": false,
 
   // Pausa entre una regeneracion completada y la siguiente operacion de reset en cola.
   // El mod espera primero al evento vanilla wgenregendone antes de contar esta pausa.

@@ -12,13 +12,14 @@
   "serverStartDelaySeconds": 15,
 
   // DEBUG / TEST MODE:
-  // If true, automatic startup resets may affect locations registered by vanilla
+  // If true, any reset may affect locations registered by vanilla
   // even when their chunks do not exist yet.
   // This forces generation of unmaterialized areas and is NOT recommended for a real world.
-  // If false, automatic startup resets require at least one chunk column in the target area
-  // to already be materialized. This check uses TestMapChunkExists and does not generate chunks.
+  // If false, both manual commands and automatic startup resets require the location
+  // to be present in generated map regions and at least one chunk column in the target
+  // area to already be materialized. This check uses TestMapChunkExists and does not generate chunks.
   // Keep this false in production.
-  "debugAllowServerStartForUngeneratedLocations": false,
+  "debugAllowResetForUngeneratedLocations": false,
 
   // Pause between a completed regeneration and the next queued reset operation.
   // The mod first waits for vanilla's wgenregendone event before this cooldown starts.
